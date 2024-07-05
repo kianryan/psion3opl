@@ -1,0 +1,374 @@
+PROC charst:
+	GLOBAL win1%,drty%
+	drty%=0 :REM Dirty flag
+	STATUSWIN ON
+	SETNAME "ChSheet"
+	openfile:
+	setst:
+	setwin:
+	drawwin:
+	drawr:
+	run:
+ENDP
+
+PROC setwin:
+	LOCAL curtype%,extent%(4),h%,w%
+	h%=gHEIGHT
+	curtype%=STATWININFO(-1,extent%())
+	STATWININFO(-1,extent%())
+	w%=extent%(1)-100
+	gSETWIN 0,0,w%,h%
+	gBORDER 0
+	win1%=gCREATE(w%,0,100,h%,1,1)
+	gUSE win1%
+	gBORDER 0
+	gUSE 1
+ENDP
+
+PROC drawwin:
+	LOCAL m%
+	gUSE 1
+	gBORDER 0
+	gFONT 7
+	m%=20
+	label:(20,m%,"","N","ame")
+	gFONT 10
+	label:(40,m%,"","S","trength")
+	label:(60,m%,"de","X","terity")
+	label:(80,m%,"","C","onstitution")
+	label:(100,m%,"","I","ntelligence")
+	label:(120,m%,"","W","isdom")
+	label:(140,m%,"c","H","arisma")
+	
+	gUSE win1%
+	gFONT 7
+	m%=10
+	label:(20,m%,"","D","ice Rolls")
+	
+	gUSE 1
+ENDP
+
+PROC drawr:
+	LOCAL m%,w%
+	gUSE 1
+	m%=120
+	w%=25
+	field:(20,m%,w%,A.name$)
+	field:(40,m%,w%,isnull$:(A.str%))
+	field:(60,m%,w%,isnull$:(A.dex%))
+	field:(80,m%,w%,isnull$:(A.con%))
+	field:(100,m%,w%,isnull$:(A.int%))
+	field:(120,m%,w%,isnull$:(A.wis%))
+	field:(140,m%,w%,isnull$:(A.chr%))
+	gUSE win1%
+	m%=20
+	w%=5
+	field:(40,m%,w%,isnull$:(A.di1%))
+	field:(60,m%,w%,isnull$:(A.di2%))
+	field:(80,m%,w%,isnull$:(A.di3%))
+	field:(100,m%,w%,isnull$:(A.di4%))
+	field:(120,m%,w%,isnull$:(A.di5%))
+	field:(140,m%,w%,isnull$:(A.di6%))
+ENDP
+	
+PROC label:(y%,x%,l$,m$,r$)
+	gAT x%,y%
+	gSTYLE 0 :gPRINT l$
+	gSTYLE 2 :gPRINT m$
+	gSTYLE 0 :gPRINT r$
+ENDP
+
+PROC field:(y%,x%,w%,s$)
+	LOCAL l%
+	l%=LEN(s$)
+	gAT x%,y%
+	gSTYLE 0 :gTMODE 3 :gPRINT s$+REPT$(" ",w%-l%)
+ENDP
+
+PROC isnull$:(n%)
+	LOCAL s$(2)
+	IF n%=0
+		s$="-"
+	ELSE
+		s$=GEN$(ABS(n%),2)
+	ENDIF
+	
+	RETURN s$
+ENDP
+
+PROC issel%:(n%)
+	IF n%<1
+		RETURN $100
+	ELSE
+		RETURN $400
+	ENDIF
+ENDP
+
+PROC run:
+	GLOBAL q%
+	LOCAL k%,h$(8),a$(7)
+	h$="sxciwh"
+	q%=0
+	WHILE q% <> 1
+		k%=GET
+		IF k%=$122
+			showm:
+		ELSEIF k%=%d
+			actiond:
+		ELSEIF k%=%n
+			actionn:
+		ELSEIF (LOC(h$,CHR$(k%))<>0)
+			selattr:(CHR$(k%))
+		ENDIF
+	ENDWH
+ENDP
+
+PROC showm:
+	LOCAL k%,h$(7),a$(5)
+	h$="naqpxte" : REM hot keys
+	mINIT
+	mCARD "File","New Party",%t,"About",%a,"Quit",%q
+	mCARD "Nav","Prev",%p,"Next",%x, "New", %n, "Erase", %e
+	k%=MENU
+	IF k% AND (LOC(h$,CHR$(k%))<>0)
+		a$="menu"+CHR$(k%)
+		@(a$): REM call proc
+	ENDIF
+ENDP
+
+PROC diceused:
+	IF (A.di1%<>0) AND (A.di2%<>0) AND (A.di3%<>0) AND (A.di4%<>0) AND (A.di5%<>0) AND (A.di6%<>0)
+		RETURN 1
+	ELSE
+		RETURN 0
+	ENDIF 
+ENDP
+
+PROC actiond:
+	LOCAL a%,b%,dice%(4),t%
+	
+	REM check available rolls
+	IF diceused: > 0
+		dINIT "No More Dice Rolls"
+		dButtons "Sorry", %s
+		DIALOG
+		RETURN
+	ENDIF 
+	
+	REM Run a roll
+	DO
+		a%=4
+		DO
+			dice%(a%)=(RND*6+1)
+			a%=a%-1
+		UNTIL a%=0
+		dINIT "Dice Roll"
+		a%=0
+		DO
+			a%=a%+1
+			dTEXT "",NUM$(dice%(a%),1)
+		UNTIL a%=4
+		dBUTTONS "Accept", %a, "Reroll", %r
+	UNTIL DIALOG<>%r
+	
+	REM bubble sort dice roll
+	b%=3
+	DO
+		b%=b%-1
+		a%=0
+		DO
+			a%=a%+1
+			IF dice%(a%)>dice%(a%+1)
+				t%=dice%(a%+1)
+				dice%(a%+1)=dice%(a%)
+				dice%(a%)=t%
+			ENDIF
+		UNTIL a%=3
+	UNTIL b%=0
+	
+	REM calc highest three
+	t% = dice%(2)+dice%(3)+dice%(4)
+	
+	REM store result
+	IF A.di1%=0 :A.di1%=t%
+	ELSEIF A.di2%=0 :A.di2%=t%
+	ELSEIF A.di3%=0 :A.di3%=t%
+	ELSEIF A.di4%=0 :A.di4%=t%
+	ELSEIF A.di5%=0 :A.di5%=t%
+	ELSEIF A.di6%=0 :A.di6%=t%
+	ENDIF
+	
+	drty%=1
+	
+	drawr:
+ENDP
+
+PROC selattr:(s$)
+	LOCAL r%,v%
+	
+	REM only if not assigned
+	IF @%("gtattr"+s$):(v%)<>0
+		dINIT "Attribute already assigned"
+		DIALOG
+		RETURN
+	ENDIF
+	
+	REM assign attr from dice
+	dINIT "Select Dice Roll"
+	
+	dTEXT "",isnull$:(A.di1%),issel%:(A.di1%)
+	dTEXT "",isnull$:(A.di2%),issel%:(A.di2%)
+	dTEXT "",isnull$:(A.di3%),issel%:(A.di3%)
+	dTEXT "",isnull$:(A.di4%),issel%:(A.di4%)
+	dTEXT "",isnull$:(A.di5%),issel%:(A.di5%)
+	dTEXT "",isnull$:(A.di6%),issel%:(A.di6%)
+	r%=DIALOG
+
+	REM r% is sel line, init takes 1
+	IF     r%=2 :v%=A.di1% :A.di1%=-A.di1%
+	ELSEIF r%=3 :v%=A.di2% :A.di2%=-A.di2%
+	ELSEIF r%=4 :v%=A.di3% :A.di3%=-A.di3%
+	ELSEIF r%=5 :v%=A.di4% :A.di4%=-A.di4%
+	ELSEIF r%=6 :v%=A.di5% :A.di5%=-A.di5%
+	ELSEIF r%=7 :v%=A.di6% :A.di6%=-A.di6%
+	ENDIF
+	
+	REM store attribute
+	IF v% > 0
+		@("stattr"+s$):(v%)
+		drty%=1
+	ENDIF
+	
+	drawr:
+ENDP
+
+PROC stattrs:(v%) :A.str% = v% :ENDP
+PROC stattrx:(v%) :A.dex% = v% :ENDP
+PROC stattrc:(v%) :A.con% = v% :ENDP
+PROC stattri:(v%) :A.int% = v% :ENDP
+PROC stattrw:(v%) :A.wis% = v% :ENDP
+PROC stattrh:(v%) :A.chr% = v% :ENDP
+
+PROC gtattrs%:(v%) :RETURN A.str% :ENDP
+PROC gtattrx%:(v%) :RETURN A.dex% :ENDP
+PROC gtattrc%:(v%) :RETURN A.con% :ENDP
+PROC gtattri%:(v%) :RETURN A.int% :ENDP
+PROC gtattrw%:(v%) :RETURN A.wis% :ENDP
+PROC gtattrh%:(v%) :RETURN A.chr% :ENDP
+
+PROC setst:
+	LOCAL c%
+	c%=COUNT
+	DIAMINIT 1,"N:"+NUM$(c%,2)
+ENDP
+
+PROC menua:
+	dINIT "Char Sheet Generator"
+	dTEXT "","(C) 2024 Orange Tentacle",$102
+	dTEXT "","MIT License",$202
+	RETURN DIALOG
+ENDP
+
+PROC menuq:
+	CLOSE
+	q% = 1
+ENDP
+
+PROC menup:
+	LOCAL p%
+	p% = POS
+	
+	IF drty%=1
+		UPDATE
+	ENDIF
+	POSITION p%
+	BACK
+	drty%=0
+	setst:
+	drawr:
+ENDP
+
+PROC menux:
+	LOCAL p%
+	p% = POS
+	
+	IF drty%=1
+		UPDATE
+		POSITION p%-1
+	ENDIF
+	
+	NEXT
+	IF EOF :BACK :ENDIF
+	drty%=0
+	
+	setst:
+	drawr:
+ENDP
+
+PROC menue:
+	IF NOT EOF
+		dINIT "Confirm Erase?"
+		dButtons "No",%n,"Yes",%y
+		IF DIALOG=%y 
+			ERASE
+			BACK
+		ENDIF
+	ENDIF
+	setst:
+	drawr:
+ENDP
+
+PROC menut:
+	IF NOT EOF
+		dINIT "Are you sure you want to start a new party?"
+		dButtons "No",%n,"Yes",%y
+		IF DIALOG=%y
+			CLOSE
+			DELETE "party"
+			openfile:
+			setst:
+			drawr:
+			BACK
+		ENDIF
+	ENDIF
+	setst:
+	drawr:
+ENDP
+
+
+PROC menun:
+	IF drty%=1
+		UPDATE
+	ENDIF
+	
+	drty%=1
+	
+	LAST
+	NEXT
+	APPEND
+	
+	setst:
+	drawr:
+ENDP
+
+PROC openfile:
+	IF NOT EXIST("party")
+		CREATE "party",A,name$,str%,dex%,con%,int%,wis%,chr%,di1%,di2%,di3%,di4%,di5%,di6%
+		APPEND
+	ELSE
+		OPEN "party",A,name$,str%,dex%,con%,int%,wis%,chr%,di1%,di2%,di3%,di4%,di5%,di6%
+	ENDIF
+	FIRST
+ENDP
+
+PROC actionn:
+	LOCAL name$(25),ret%
+	dINIT "Enter Name"
+	dEDIT name$,"Name:",25
+	ret%=DIALOG
+	IF ret%
+		A.name$=name$
+		drty%=1
+	ENDIF
+	drawr:
+ENDP
